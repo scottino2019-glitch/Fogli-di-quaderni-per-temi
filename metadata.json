@@ -1,0 +1,6 @@
+{
+  "name": "Quaderni per Cinese, Russo e Coreano",
+  "description": "Fogli di quaderno preimpostati per temi in cinese, russo e coreano con griglie specifiche, trascrizione e traduzione, esportabili come immagine e HTML.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
