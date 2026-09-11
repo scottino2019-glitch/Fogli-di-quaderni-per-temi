@@ -106,29 +106,13 @@ export const RussianContinuousSheet: React.FC<RussianContinuousSheetProps> = ({
                 >
                   {/* Diagonal slanted lines (Косая линейка) */}
                   {config.gridType === 'kosaya' && (
-                    <svg
-                      className="absolute inset-0 w-full h-full pointer-events-none"
-                      style={{ opacity: 0.65 }}
-                    >
-                      <defs>
-                        <pattern
-                          id={`kosaya-pattern-${idx}`}
-                          width="24"
-                          height={rowHeight}
-                          patternUnits="userSpaceOnUse"
-                        >
-                          <line
-                            x1="0"
-                            y1={rowHeight}
-                            x2="14"
-                            y2="0"
-                            stroke={colors.diagonal}
-                            strokeWidth="0.8"
-                          />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill={`url(#kosaya-pattern-${idx})`} />
-                    </svg>
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        backgroundImage: `repeating-linear-gradient(65deg, transparent, transparent 23px, ${colors.diagonal} 23px, ${colors.diagonal} 24px)`,
+                        opacity: 0.65,
+                      }}
+                    />
                   )}
 
                   {/* Kletka (Grid/Checkers) pattern */}

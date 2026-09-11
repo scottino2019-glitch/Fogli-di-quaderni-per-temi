@@ -15,8 +15,8 @@ import {
   X,
   CheckCheck,
 } from 'lucide-react';
-import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { captureElementAsDataUrl } from './utils/capture';
 import {
   SupportedLanguage,
   GridColor,
@@ -138,29 +138,26 @@ export default function App() {
     setExportMessage('Generazione immagine in corso...');
 
     try {
-      // Small pause to ensure rendering
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
-      const dataUrl = await toPng(sheetRef.current, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
+      const dataUrl = await captureElementAsDataUrl(sheetRef.current);
 
       const safeTitle = (config.header.title || 'foglio_quaderno')
         .toLowerCase()
-        .replace(/[^a-z0-9]/gi, '_')
+        .replace(/[^a-z0-9_\u4e00-\u9fa5\u0400-\u04ff\uac00-\ud7af]/gi, '_')
         .slice(0, 30);
 
       const link = document.createElement('a');
       link.download = `${safeTitle}_${currentLang}.png`;
       link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
 
       showFeedback('Immagine PNG esportata con successo!');
     } catch (err) {
       console.error('Errore esportazione PNG:', err);
-      showFeedback('Impossibile generare PNG, puoi usare Stampa / PDF.');
+      showFeedback('Errore durante la generazione dell\'immagine PNG.');
     } finally {
       setIsExporting(false);
     }
@@ -229,18 +226,12 @@ export default function App() {
   const handleExportPDF = async () => {
     if (!sheetRef.current) return;
     setIsExporting(true);
-    showFeedback('Generazione PDF in corso...');
+    setExportMessage('Generazione PDF in corso...');
 
     try {
-      // Pause briefly for DOM stability
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
-      const dataUrl = await toPng(sheetRef.current, {
-        quality: 0.98,
-        pixelRatio: 2.5,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      });
+      const dataUrl = await captureElementAsDataUrl(sheetRef.current);
 
       const img = new Image();
       img.src = dataUrl;
