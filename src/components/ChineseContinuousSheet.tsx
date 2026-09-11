@@ -6,6 +6,12 @@ interface ChineseContinuousSheetProps {
   data: EssayData;
 }
 
+interface CellData {
+  char: string;
+  pinyin: string;
+  isPunctuation: boolean;
+}
+
 const colorMap: Record<GridColor, { border: string; inner: string; pinyinGuide: string; fill: string }> = {
   red: {
     border: '#dc2626',
@@ -34,10 +40,20 @@ const colorMap: Record<GridColor, { border: string; inner: string; pinyinGuide: 
 };
 
 const sizeMap = {
-  small: { cellSize: 34, fontSize: 'text-xl', cols: 14, pinyinHeight: 18 },
-  medium: { cellSize: 42, fontSize: 'text-2xl', cols: 12, pinyinHeight: 20 },
-  large: { cellSize: 52, fontSize: 'text-3xl', cols: 10, pinyinHeight: 24 },
+  small: { cellSize: 34, fontSize: 'text-xl', cols: 14, pinyinHeight: 18, pinyinFontSize: '10px' },
+  medium: { cellSize: 42, fontSize: 'text-2xl', cols: 12, pinyinHeight: 21, pinyinFontSize: '11.5px' },
+  large: { cellSize: 52, fontSize: 'text-3xl', cols: 10, pinyinHeight: 25, pinyinFontSize: '13px' },
 };
+
+/**
+ * Pinyin syllable extractor that supports:
+ * - Single syllables: Shàng, gè, hǎo, wǒ
+ * - Compound words: zhōumò -> [zhōu, mò], tiānqì -> [tiān, qì], fēicháng -> [fēi, cháng]
+ * - Tone numbers: ni3 -> ni3, hao3 -> hao3
+ */
+const PINYIN_SYLLABLE_REGEX = /(?:zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])?[aeiouüvāáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜ]+(?:ng|n|r)?[1-5]?/gi;
+
+const PUNCTUATION_REGEX = /[，。！？、“”：；《》、（）,.!?:;—…\s]/;
 
 export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
   config,
@@ -45,56 +61,85 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
 }) => {
   const colors = colorMap[config.gridColor] || colorMap.red;
   const currentSize = sizeMap[config.gridSize] || sizeMap.medium;
-
-  // Split text into characters (including punctuation)
-  const allChars: string[] = Array.from((data.originalText || '').trim());
   const cols = currentSize.cols;
 
-  // Split pinyin into tokens roughly matching characters or lines
-  const pinyinTokens = (data.transcription || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  // Extract all individual Pinyin syllables
+  const pinyinMatches = (data.transcription || '').match(PINYIN_SYLLABLE_REGEX) || [];
+
+  // Align each ideogram with its exact Pinyin syllable
+  const allChars: string[] = Array.from((data.originalText || '').trim());
+  const alignedCells: CellData[] = [];
+  let pinyinIdx = 0;
+
+  for (let i = 0; i < allChars.length; i++) {
+    const char = allChars[i];
+
+    // Check for newline (paragraph break)
+    if (char === '\n') {
+      // Pad to the end of the current row so the next paragraph starts on a new line
+      const remainder = alignedCells.length % cols;
+      if (remainder > 0) {
+        const fillCount = cols - remainder;
+        for (let k = 0; k < fillCount; k++) {
+          alignedCells.push({ char: '', pinyin: '', isPunctuation: false });
+        }
+      }
+      continue;
+    }
+
+    const isPunct = PUNCTUATION_REGEX.test(char);
+    if (isPunct) {
+      // Punctuation occupies its own cell without a pinyin syllable
+      alignedCells.push({
+        char,
+        pinyin: '',
+        isPunctuation: true,
+      });
+    } else {
+      // Chinese character gets its 1-to-1 corresponding Pinyin syllable
+      const pinyin = pinyinIdx < pinyinMatches.length ? pinyinMatches[pinyinIdx] : '';
+      pinyinIdx++;
+      alignedCells.push({
+        char,
+        pinyin,
+        isPunctuation: false,
+      });
+    }
+  }
 
   // Divide into continuous notebook lines
-  const totalContentRows = Math.max(1, Math.ceil(allChars.length / cols));
+  const totalContentRows = Math.max(1, Math.ceil(alignedCells.length / cols));
   const totalRows = Math.max(totalContentRows + config.extraBlankLines, 6);
 
-  const rows: { chars: string[]; pinyinSnippet?: string }[] = [];
+  const rows: CellData[][] = [];
   for (let r = 0; r < totalRows; r++) {
     const startIdx = r * cols;
-    const rowChars = allChars.slice(startIdx, startIdx + cols);
+    const rowCells = alignedCells.slice(startIdx, startIdx + cols);
 
     // Fill the rest of the row with empty cells
-    while (rowChars.length < cols) {
-      rowChars.push('');
+    while (rowCells.length < cols) {
+      rowCells.push({ char: '', pinyin: '', isPunctuation: false });
     }
 
-    // Rough matching for pinyin line if transcription is present
-    let pinyinSnippet = '';
-    if (r < totalContentRows && pinyinTokens.length > 0) {
-      const pinyinStart = r * cols;
-      pinyinSnippet = pinyinTokens.slice(pinyinStart, pinyinStart + cols).join(' ');
-    }
-
-    rows.push({ chars: rowChars, pinyinSnippet });
+    rows.push(rowCells);
   }
 
   // Render a Tianzige / Mige / Fangge cell
-  const renderCell = (char: string, cellIdx: number, rowIdx: number) => {
-    const isPunctuation = /[，。！？、“”：；《》、（）]/.test(char);
-
+  const renderCell = (cell: CellData, cellIdx: number, rowIdx: number) => {
     return (
       <div
         key={`zh-cell-${rowIdx}-${cellIdx}`}
-        className="grid-cell"
+        className="grid-cell relative flex items-center justify-center select-none overflow-hidden"
         style={{
           width: `${currentSize.cellSize}px`,
           height: `${currentSize.cellSize}px`,
-          border: `1.5px solid ${colors.border}`,
+          borderLeft: `1.5px solid ${colors.border}`,
+          borderRight: cellIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
+          borderTop: config.showTranscription ? 'none' : `1.5px solid ${colors.border}`,
+          borderBottom: `1.5px solid ${colors.border}`,
           backgroundColor: '#ffffff',
-          marginRight: '-1.5px', // Merges borders into continuous grid
-          marginBottom: '-1.5px',
+          marginRight: cellIdx === cols - 1 ? '0px' : '-1.5px',
+          boxSizing: 'border-box',
         }}
       >
         {/* SVG Guides inside cell */}
@@ -120,14 +165,14 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
         </svg>
 
         {/* Character */}
-        {char && (
+        {cell.char && (
           <span
             className={`relative z-10 font-bold leading-none ${currentSize.fontSize} ${
-              isPunctuation ? 'text-neutral-600 translate-x-[-15%] translate-y-[-15%]' : 'text-neutral-900'
+              cell.isPunctuation ? 'text-neutral-600 translate-x-[-15%] translate-y-[-15%]' : 'text-neutral-900'
             }`}
             style={{ fontFamily: '"Noto Serif SC", "Noto Sans SC", STKaiti, KaiTi, serif' }}
           >
-            {char}
+            {cell.char}
           </span>
         )}
       </div>
@@ -140,42 +185,63 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
       <div className="w-full overflow-x-auto py-2">
         <div className="inline-flex flex-col space-y-3 min-w-full items-center">
           {rows.map((row, rIdx) => {
-            const hasContentInRow = row.chars.some((c) => Boolean(c));
-
             return (
               <div key={`zh-row-${rIdx}`} className="flex flex-col">
-                {/* Upper Pinyin strip (authentic Chinese 拼音田字格本 style) */}
+                {/* Upper Pinyin row: each Pinyin cell is placed directly above its corresponding ideogram */}
                 {config.showTranscription && (
-                  <div
-                    className="relative flex items-center px-1"
-                    style={{
-                      width: `${currentSize.cellSize * cols}px`,
-                      height: `${currentSize.pinyinHeight}px`,
-                      borderTop: `1px dashed ${colors.pinyinGuide}`,
-                      borderBottom: `1px solid ${colors.border}`,
-                      backgroundColor: colors.fill,
-                    }}
-                  >
-                    {/* Intermediate guiding line for Pinyin diacritics */}
-                    <div
-                      className="absolute inset-x-0 pointer-events-none"
-                      style={{
-                        top: '50%',
-                        borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
-                      }}
-                    />
-                    <span
-                      className="relative z-10 text-[11px] font-medium tracking-wider text-neutral-700 font-sans truncate"
-                      style={{ letterSpacing: '0.08em' }}
-                    >
-                      {row.pinyinSnippet || (hasContentInRow ? '' : '')}
-                    </span>
+                  <div className="flex flex-row">
+                    {row.map((cell, cIdx) => (
+                      <div
+                        key={`zh-pinyin-${rIdx}-${cIdx}`}
+                        className="relative flex items-center justify-center select-none overflow-hidden"
+                        style={{
+                          width: `${currentSize.cellSize}px`,
+                          height: `${currentSize.pinyinHeight}px`,
+                          borderTop: `1.5px solid ${colors.border}`,
+                          borderLeft: `1.5px solid ${colors.border}`,
+                          borderRight: cIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
+                          borderBottom: `1px solid ${colors.inner}`,
+                          marginRight: cIdx === cols - 1 ? '0px' : '-1.5px',
+                          backgroundColor: colors.fill,
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        {/* Authentic Sì Xiàn Sān Gé (四线三格) Pinyin notebook guide lines */}
+                        <div
+                          className="absolute inset-x-0 pointer-events-none"
+                          style={{
+                            top: '33%',
+                            borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
+                          }}
+                        />
+                        <div
+                          className="absolute inset-x-0 pointer-events-none"
+                          style={{
+                            top: '66%',
+                            borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
+                          }}
+                        />
+
+                        {/* Perfectly aligned Pinyin syllable */}
+                        {cell.pinyin && (
+                          <span
+                            className="relative z-10 font-medium text-neutral-800 tracking-tight leading-none text-center truncate max-w-full px-0.5"
+                            style={{
+                              fontSize: currentSize.pinyinFontSize,
+                              fontFamily: 'system-ui, -apple-system, sans-serif',
+                            }}
+                          >
+                            {cell.pinyin}
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Character grid row */}
                 <div className="flex flex-row">
-                  {row.chars.map((char, cIdx) => renderCell(char, cIdx, rIdx))}
+                  {row.map((cell, cIdx) => renderCell(cell, cIdx, rIdx))}
                 </div>
               </div>
             );
