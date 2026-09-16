@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Download,
   FileCode,
@@ -14,6 +14,9 @@ import {
   Copy,
   X,
   CheckCheck,
+  Code,
+  Columns2,
+  Maximize2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { captureElementAsDataUrl } from './utils/capture';
@@ -46,6 +49,7 @@ export default function App() {
     gridType: 'tianzige',
     gridColor: 'red',
     gridSize: 'medium',
+    fontSizeModifier: 'normal',
     showTranscription: true,
     showTranslation: true,
     translationPosition: 'footer',
@@ -64,7 +68,20 @@ export default function App() {
   const [showHtmlModal, setShowHtmlModal] = useState(false);
   const [htmlPreviewCode, setHtmlPreviewCode] = useState('');
   const [hasCopied, setHasCopied] = useState(false);
+  const [modalTab, setModalTab] = useState<'visual' | 'code'>('visual');
+  const [viewMode, setViewMode] = useState<'split' | 'sheet'>('split');
   const sheetRef = useRef<HTMLDivElement>(null);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showHtmlModal) {
+        setShowHtmlModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showHtmlModal]);
 
   // Switch language and update defaults
   const handleLanguageChange = (lang: SupportedLanguage) => {
@@ -382,57 +399,101 @@ export default function App() {
             </div>
           </div>
 
-          {/* Language Selector Tabs */}
-          <div className="flex items-center bg-neutral-100 p-1 rounded-lg border border-neutral-200">
-            <button
-              id="lang-tab-zh"
-              type="button"
-              onClick={() => handleLanguageChange('zh')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                currentLang === 'zh'
-                  ? 'bg-white text-red-700 shadow-xs'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              <span className="text-base">🇨🇳</span>
-              <span>Cinese (田字格)</span>
-            </button>
+          {/* Right Toolbar: Language Tabs & View Mode */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-neutral-100 p-1 rounded-lg border border-neutral-200">
+              <button
+                type="button"
+                onClick={() => setViewMode('split')}
+                title="Visualizza affiancati editor e foglio"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'split'
+                    ? 'bg-white text-neutral-900 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                <Columns2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Affiancato</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('sheet')}
+                title="Ingrandisci il foglio a larghezza piena per leggere comodamente"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'sheet'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Solo Foglio</span>
+              </button>
+            </div>
 
-            <button
-              id="lang-tab-ru"
-              type="button"
-              onClick={() => handleLanguageChange('ru')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                currentLang === 'ru'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              <span className="text-base">🇷🇺</span>
-              <span>Russo (Косая)</span>
-            </button>
+            {/* Language Selector Tabs */}
+            <div className="flex items-center bg-neutral-100 p-1 rounded-lg border border-neutral-200">
+              <button
+                id="lang-tab-zh"
+                type="button"
+                onClick={() => handleLanguageChange('zh')}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  currentLang === 'zh'
+                    ? 'bg-white text-red-700 shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <span className="text-base">🇨🇳</span>
+                <span>Cinese</span>
+              </button>
 
-            <button
-              id="lang-tab-ko"
-              type="button"
-              onClick={() => handleLanguageChange('ko')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                currentLang === 'ko'
-                  ? 'bg-white text-emerald-700 shadow-xs'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              <span className="text-base">🇰🇷</span>
-              <span>Coreano (원고지)</span>
-            </button>
+              <button
+                id="lang-tab-ru"
+                type="button"
+                onClick={() => handleLanguageChange('ru')}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  currentLang === 'ru'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <span className="text-base">🇷🇺</span>
+                <span>Russo</span>
+              </button>
+
+              <button
+                id="lang-tab-ko"
+                type="button"
+                onClick={() => handleLanguageChange('ko')}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  currentLang === 'ko'
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <span className="text-base">🇰🇷</span>
+                <span>Coreano</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Workspace: 2-Column Split */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Main Workspace */}
+      <main
+        className={`flex-1 w-full mx-auto p-3 sm:p-5 lg:p-6 transition-all ${
+          viewMode === 'sheet'
+            ? 'max-w-4xl flex flex-col items-center'
+            : 'max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start'
+        }`}
+      >
         {/* Left Column: Editor & Controls */}
-        <div id="app-sidebar" className="lg:col-span-5 flex flex-col space-y-5 print-hidden">
+        <div
+          id="app-sidebar"
+          className={`flex flex-col space-y-5 print-hidden ${
+            viewMode === 'sheet' ? 'hidden' : 'lg:col-span-5 w-full'
+          }`}
+        >
           {/* Box 1: Incolla o Modifica il Tema */}
           <div className="bg-white rounded-xl border border-neutral-200 shadow-xs overflow-hidden">
             <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
@@ -759,6 +820,84 @@ export default function App() {
               </div>
             </div>
 
+            {/* Dimensione Caratteri / Font */}
+            <div className="pt-2 border-t border-neutral-100">
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-neutral-800 font-bold">
+                  Dimensione Caratteri / Font
+                </label>
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {config.fontSizeModifier === 'huge'
+                    ? 'Molto Grande (+25%)'
+                    : config.fontSizeModifier === 'large'
+                    ? 'Grande (+12%)'
+                    : 'Normale (Già Ingrandito)'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 bg-neutral-100 p-1 rounded-md border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setConfig((prev) => ({ ...prev, fontSizeModifier: 'normal' }))}
+                  className={`py-1.5 px-2 rounded text-xs font-semibold cursor-pointer transition-all ${
+                    (!config.fontSizeModifier || config.fontSizeModifier === 'normal')
+                      ? 'bg-white shadow-xs text-neutral-950 font-bold'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  Normale
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfig((prev) => ({ ...prev, fontSizeModifier: 'large' }))}
+                  className={`py-1.5 px-2 rounded text-xs font-semibold cursor-pointer transition-all ${
+                    config.fontSizeModifier === 'large'
+                      ? 'bg-white shadow-xs text-blue-700 font-bold'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  Grande
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfig((prev) => ({ ...prev, fontSizeModifier: 'huge' }))}
+                  className={`py-1.5 px-2 rounded text-xs font-semibold cursor-pointer transition-all ${
+                    config.fontSizeModifier === 'huge'
+                      ? 'bg-white shadow-xs text-blue-800 font-bold'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  Molto Grande
+                </button>
+              </div>
+            </div>
+
+            {/* Stile Carattere Russo se lingua russa */}
+            {currentLang === 'ru' && (
+              <div>
+                <label className="block text-neutral-700 font-bold mb-1">Stile Carattere Russo</label>
+                <div className="flex bg-neutral-100 p-1 rounded-md border border-neutral-200 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setConfig((prev) => ({ ...prev, fontFamily: 'handwriting' }))}
+                    className={`flex-1 py-1.5 rounded text-xs font-semibold cursor-pointer transition-all ${
+                      config.fontFamily === 'handwriting' ? 'bg-white shadow-xs text-neutral-950 font-bold' : 'text-neutral-600'
+                    }`}
+                  >
+                    Corsivo (Прописи)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfig((prev) => ({ ...prev, fontFamily: 'serif' }))}
+                    className={`flex-1 py-1.5 rounded text-xs font-semibold cursor-pointer transition-all ${
+                      config.fontFamily !== 'handwriting' ? 'bg-white shadow-xs text-neutral-950 font-bold' : 'text-neutral-600'
+                    }`}
+                  >
+                    Stampatello
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Extra Blank Lines for Manual Handwriting Exercise */}
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -783,7 +922,11 @@ export default function App() {
         </div>
 
         {/* Right Column: High-Fidelity Continuous Notebook Sheet & Action Bar */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
+        <div
+          className={`flex flex-col space-y-4 ${
+            viewMode === 'sheet' ? 'w-full' : 'lg:col-span-7 min-w-0 w-full'
+          }`}
+        >
           {/* Action Export Bar */}
           <div
             id="export-toolbar"
@@ -866,59 +1009,58 @@ export default function App() {
           </div>
 
           {/* Real Continuous Notebook Sheet (A4 format representation) */}
-          <div className="w-full flex justify-center">
-            <div
-              id="printable-notebook-page"
-              ref={sheetRef}
-              className="w-full max-w-[820px] bg-white rounded-lg border border-neutral-200 p-8 sm:p-10 notebook-paper-shadow relative"
-              style={{
-                minHeight: '1020px',
-              }}
-            >
-              {/* Authentic Notebook Header */}
-              <div className="border-b-2 border-neutral-800 pb-4 mb-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-2 mb-3">
-                  <h2 className="text-xl font-bold text-neutral-900 tracking-tight font-serif">
-                    {config.header.title || 'Tema di Esercitazione'}
-                  </h2>
-                  <span className="text-xs font-mono font-medium text-neutral-500 uppercase tracking-wider">
-                    {currentLang === 'zh'
-                      ? '作文练习本 / Quaderno Cinese'
-                      : currentLang === 'ru'
-                      ? 'Тетрадь для сочинений / Quaderno Russo'
-                      : '원고지 작문 / Quaderno Coreano'}
-                  </span>
+          <div className="w-full flex flex-col items-center">
+            <div className="w-full flex justify-center py-1">
+              <div
+                id="printable-notebook-page"
+                ref={sheetRef}
+                className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-6 md:p-8 notebook-paper-shadow relative w-full max-w-[760px] min-h-[860px] box-border"
+              >
+                {/* Authentic Notebook Header */}
+                <div className="border-b-2 border-neutral-800 pb-3 mb-5">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-1.5 mb-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-neutral-950 tracking-tight font-serif">
+                      {config.header.title || 'Tema di Esercitazione'}
+                    </h2>
+                    <span className="text-xs font-mono font-medium text-neutral-500 uppercase tracking-wider">
+                      {currentLang === 'zh'
+                        ? '作文练习本 / Quaderno Cinese'
+                        : currentLang === 'ru'
+                        ? 'Тетрадь для сочинений / Quaderno Russo'
+                        : '원고지 작문 / Quaderno Coreano'}
+                    </span>
+                  </div>
+
+                  {/* Student Info Bar */}
+                  <div className="grid grid-cols-3 gap-2 text-xs border-t border-neutral-300 pt-2.5 text-neutral-600">
+                    <div>
+                      <span className="font-bold text-neutral-900">Studente: </span>
+                      <span className="font-medium text-neutral-800">{config.header.studentName || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-neutral-900">Data: </span>
+                      <span className="font-medium text-neutral-800">{config.header.date || '—'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-neutral-900">Livello: </span>
+                      <span className="font-medium text-neutral-800">{config.header.levelOrTopic || 'Standard'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Student Info Bar */}
-                <div className="grid grid-cols-3 gap-2 text-xs border-t border-neutral-200 pt-2 text-neutral-600">
-                  <div>
-                    <span className="font-semibold text-neutral-800">Studente: </span>
-                    <span>{config.header.studentName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-neutral-800">Data: </span>
-                    <span>{config.header.date || '—'}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-neutral-800">Livello: </span>
-                    <span>{config.header.levelOrTopic || 'Standard'}</span>
-                  </div>
-                </div>
+                {/* Continuous Sheet Content based on Language */}
+                {currentLang === 'zh' && (
+                  <ChineseContinuousSheet config={config} data={essayData} />
+                )}
+
+                {currentLang === 'ru' && (
+                  <RussianContinuousSheet config={config} data={essayData} />
+                )}
+
+                {currentLang === 'ko' && (
+                  <KoreanContinuousSheet config={config} data={essayData} />
+                )}
               </div>
-
-              {/* Continuous Sheet Content based on Language */}
-              {currentLang === 'zh' && (
-                <ChineseContinuousSheet config={config} data={essayData} />
-              )}
-
-              {currentLang === 'ru' && (
-                <RussianContinuousSheet config={config} data={essayData} />
-              )}
-
-              {currentLang === 'ko' && (
-                <KoreanContinuousSheet config={config} data={essayData} />
-              )}
             </div>
           </div>
         </div>
@@ -928,82 +1070,120 @@ export default function App() {
       {showHtmlModal && (
         <div
           id="html-preview-modal"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5"
           onClick={() => setShowHtmlModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl border border-neutral-200 w-full max-w-5xl flex flex-col max-h-[92vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-5xl h-[90vh] max-h-[850px] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
-              <div className="flex items-center gap-2">
-                <FileCode className="w-5 h-5 text-blue-600" />
+            <div className="px-4 sm:px-6 py-3.5 border-b border-neutral-200 flex flex-wrap items-center justify-between bg-neutral-50 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shadow-xs">
+                  <FileCode className="w-5 h-5" />
+                </div>
                 <div>
                   <h3 className="text-sm font-bold text-neutral-900 leading-tight">
-                    Anteprima File HTML Esportato (Autonomo al 100%)
+                    File HTML Autonomo (Quaderno A4)
                   </h3>
                   <p className="text-[11px] text-neutral-500">
-                    Rendering identico con griglie continue, caratteri e stili completi
+                    Include Tailwind CSS, Google Fonts e layout di stampa pronto
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyHtml}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300 rounded text-xs font-medium cursor-pointer"
-                >
-                  {hasCopied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{hasCopied ? 'Copiato!' : 'Copia Codice'}</span>
-                </button>
+              {/* Tab Switcher & Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Visual vs Code Tab Switcher */}
+                <div className="flex items-center bg-neutral-200/80 p-1 rounded-lg text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('visual')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                      modalTab === 'visual'
+                        ? 'bg-white text-neutral-900 shadow-xs'
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Anteprima Foglio</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('code')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                      modalTab === 'code'
+                        ? 'bg-white text-neutral-900 shadow-xs'
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                    <span>Codice HTML</span>
+                  </button>
+                </div>
 
                 <button
                   type="button"
-                  onClick={handleExportPDF}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded text-xs font-semibold cursor-pointer"
+                  onClick={handleCopyHtml}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300 rounded-lg text-xs font-medium cursor-pointer transition-colors shadow-xs"
                 >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>Scarica .pdf</span>
+                  {hasCopied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{hasCopied ? 'Copiato!' : 'Copia'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleExportHTML}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded text-xs font-semibold cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-xs"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
                   <span>Scarica .html</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowHtmlModal(false)}
-                  className="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-md hover:bg-neutral-200/60 cursor-pointer ml-1"
+                  aria-label="Chiudi"
+                  className="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-lg hover:bg-neutral-200/70 cursor-pointer ml-1 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Body: Real Iframe rendering the standalone HTML */}
-            <div className="flex-1 bg-neutral-200/70 p-4 overflow-hidden flex flex-col">
-              <iframe
-                title="Anteprima HTML Quaderno"
-                srcDoc={htmlPreviewCode}
-                className="w-full flex-1 bg-white rounded-lg border border-neutral-300 shadow-inner"
-                sandbox="allow-same-origin allow-scripts"
-              />
+            {/* Modal Body */}
+            <div className="flex-1 min-h-0 bg-neutral-100 p-3 sm:p-5 overflow-hidden flex flex-col">
+              {modalTab === 'visual' ? (
+                <div className="w-full h-full bg-neutral-200/60 rounded-xl border border-neutral-300 overflow-hidden flex flex-col shadow-inner">
+                  <iframe
+                    title="Anteprima HTML Quaderno"
+                    srcDoc={htmlPreviewCode}
+                    className="w-full h-full border-none bg-white"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-full bg-neutral-950 rounded-xl border border-neutral-800 p-4 overflow-auto flex flex-col font-mono text-xs text-neutral-200">
+                  <pre className="whitespace-pre-wrap break-all leading-relaxed select-all">
+                    {htmlPreviewCode}
+                  </pre>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div className="px-5 py-2.5 bg-neutral-50 border-t border-neutral-200 flex items-center justify-between text-xs text-neutral-500">
-              <span>Il file include Tailwind CSS, Google Fonts ed è pronto per l'apertura in qualsiasi browser o stampa diretta.</span>
+              <span>
+                {modalTab === 'visual'
+                  ? 'Il foglio HTML è autonomo e pronto da aprire in qualsiasi browser o stampare.'
+                  : 'Codice HTML completo con Tailwind CSS e font Google pronti per l\'uso.'}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowHtmlModal(false)}
-                className="px-3 py-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded font-medium cursor-pointer"
+                className="px-4 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded-md font-medium cursor-pointer transition-colors"
               >
                 Chiudi
               </button>

@@ -19,7 +19,10 @@ export async function captureElementAsDataUrl(element: HTMLElement): Promise<str
     }
   }
 
-  // Tentativo 1: html2canvas (Usa getComputedStyle e canvas 2D nativo, nessuna richiesta fetch per i font esterni)
+  // Tentativo 1: html2canvas
+  // Imposta windowWidth a 780px e onclone per garantire che anche su smartphone/tablet
+  // l'elemento venga renderizzato e catturato alle esatte dimensioni canoniche A4 desktop (740px)
+  // senza tagli, colonne mancanti o compressioni anomale.
   try {
     const canvas = await html2canvas(element, {
       scale: 2.2,
@@ -27,6 +30,33 @@ export async function captureElementAsDataUrl(element: HTMLElement): Promise<str
       useCORS: true,
       allowTaint: true,
       logging: false,
+      windowWidth: 780,
+      onclone: (clonedDoc, clonedElement) => {
+        // Normalizza body del documento clonato
+        if (clonedDoc.body) {
+          clonedDoc.body.style.width = '780px';
+          clonedDoc.body.style.minWidth = '780px';
+        }
+
+        // Forza le dimensioni canoniche A4 sull'elemento catturato
+        clonedElement.style.width = '740px';
+        clonedElement.style.minWidth = '740px';
+        clonedElement.style.maxWidth = '740px';
+        clonedElement.style.padding = '30px 34px';
+        clonedElement.style.transform = 'none';
+        clonedElement.style.margin = '0 auto';
+        clonedElement.style.boxSizing = 'border-box';
+
+        // Disattiva limitazioni di overflow orizzontale su tutti i contenitori figli
+        // così da includere tutte le colonne della griglia (Cinese, Russo, Coreano)
+        const scrollables = clonedElement.querySelectorAll('.overflow-x-auto, .overflow-hidden');
+        scrollables.forEach((node) => {
+          const el = node as HTMLElement;
+          el.style.overflow = 'visible';
+          el.style.width = '100%';
+          el.style.maxWidth = 'none';
+        });
+      },
       ignoreElements: (el) => el.classList && el.classList.contains('print-hidden'),
     });
 
@@ -38,7 +68,7 @@ export async function captureElementAsDataUrl(element: HTMLElement): Promise<str
     console.warn('Cattura con html2canvas fallita, avvio fallback con html-to-image:', canvasErr);
   }
 
-  // Tentativo 2: html-to-image con skipFonts: true e fontEmbedCSS disabilitato per evitare SecurityError CORS
+  // Tentativo 2: html-to-image con skipFonts: true e normalizzazione dimensioni A4
   try {
     const dataUrl = await toPng(element, {
       quality: 0.98,
@@ -47,6 +77,13 @@ export async function captureElementAsDataUrl(element: HTMLElement): Promise<str
       skipFonts: true,
       fontEmbedCSS: '',
       cacheBust: false,
+      width: 740,
+      style: {
+        width: '740px',
+        minWidth: '740px',
+        maxWidth: '740px',
+        transform: 'none',
+      },
       filter: (node: HTMLElement) => {
         return !node.classList || !node.classList.contains('print-hidden');
       },
@@ -65,6 +102,7 @@ export async function captureElementAsDataUrl(element: HTMLElement): Promise<str
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
+    windowWidth: 860,
   });
 
   const finalUrl = fallbackCanvas.toDataURL('image/png');

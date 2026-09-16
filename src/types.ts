@@ -24,6 +24,7 @@ export interface SheetConfig {
   gridType: string;
   gridColor: GridColor;
   gridSize: 'small' | 'medium' | 'large';
+  fontSizeModifier?: 'normal' | 'large' | 'huge';
   showTranscription: boolean;
   showTranslation: boolean;
   translationPosition: 'interlinear' | 'footer';

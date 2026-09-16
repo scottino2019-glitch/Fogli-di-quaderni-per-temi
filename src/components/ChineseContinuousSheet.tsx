@@ -39,20 +39,13 @@ const colorMap: Record<GridColor, { border: string; inner: string; pinyinGuide: 
   },
 };
 
-const sizeMap = {
-  small: { cellSize: 34, fontSize: 'text-xl', cols: 14, pinyinHeight: 18, pinyinFontSize: '10px' },
-  medium: { cellSize: 42, fontSize: 'text-2xl', cols: 12, pinyinHeight: 21, pinyinFontSize: '11.5px' },
-  large: { cellSize: 52, fontSize: 'text-3xl', cols: 10, pinyinHeight: 25, pinyinFontSize: '13px' },
+const columnMap = {
+  small: 14,
+  medium: 12,
+  large: 10,
 };
 
-/**
- * Pinyin syllable extractor that supports:
- * - Single syllables: Shàng, gè, hǎo, wǒ
- * - Compound words: zhōumò -> [zhōu, mò], tiānqì -> [tiān, qì], fēicháng -> [fēi, cháng]
- * - Tone numbers: ni3 -> ni3, hao3 -> hao3
- */
 const PINYIN_SYLLABLE_REGEX = /(?:zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])?[aeiouüvāáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜ]+(?:ng|n|r)?[1-5]?/gi;
-
 const PUNCTUATION_REGEX = /[，。！？、“”：；《》、（）,.!?:;—…\s]/;
 
 export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
@@ -60,8 +53,15 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
   data,
 }) => {
   const colors = colorMap[config.gridColor] || colorMap.red;
-  const currentSize = sizeMap[config.gridSize] || sizeMap.medium;
-  const cols = currentSize.cols;
+  const cols = columnMap[config.gridSize] || columnMap.medium;
+
+  // Font multiplier for user-selectable font size
+  const fontMultiplier =
+    config.fontSizeModifier === 'huge'
+      ? 1.25
+      : config.fontSizeModifier === 'large'
+      ? 1.12
+      : 1.0;
 
   // Extract all individual Pinyin syllables
   const pinyinMatches = (data.transcription || '').match(PINYIN_SYLLABLE_REGEX) || [];
@@ -74,9 +74,8 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
   for (let i = 0; i < allChars.length; i++) {
     const char = allChars[i];
 
-    // Check for newline (paragraph break)
+    // Paragraph break
     if (char === '\n') {
-      // Pad to the end of the current row so the next paragraph starts on a new line
       const remainder = alignedCells.length % cols;
       if (remainder > 0) {
         const fillCount = cols - remainder;
@@ -89,14 +88,12 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
 
     const isPunct = PUNCTUATION_REGEX.test(char);
     if (isPunct) {
-      // Punctuation occupies its own cell without a pinyin syllable
       alignedCells.push({
         char,
         pinyin: '',
         isPunctuation: true,
       });
     } else {
-      // Chinese character gets its 1-to-1 corresponding Pinyin syllable
       const pinyin = pinyinIdx < pinyinMatches.length ? pinyinMatches[pinyinIdx] : '';
       pinyinIdx++;
       alignedCells.push({
@@ -116,7 +113,6 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
     const startIdx = r * cols;
     const rowCells = alignedCells.slice(startIdx, startIdx + cols);
 
-    // Fill the rest of the row with empty cells
     while (rowCells.length < cols) {
       rowCells.push({ char: '', pinyin: '', isPunctuation: false });
     }
@@ -124,144 +120,154 @@ export const ChineseContinuousSheet: React.FC<ChineseContinuousSheetProps> = ({
     rows.push(rowCells);
   }
 
-  // Render a Tianzige / Mige / Fangge cell
-  const renderCell = (cell: CellData, cellIdx: number, rowIdx: number) => {
-    return (
-      <div
-        key={`zh-cell-${rowIdx}-${cellIdx}`}
-        className="grid-cell relative flex items-center justify-center select-none overflow-hidden"
-        style={{
-          width: `${currentSize.cellSize}px`,
-          height: `${currentSize.cellSize}px`,
-          borderLeft: `1.5px solid ${colors.border}`,
-          borderRight: cellIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
-          borderTop: config.showTranscription ? 'none' : `1.5px solid ${colors.border}`,
-          borderBottom: `1.5px solid ${colors.border}`,
-          backgroundColor: '#ffffff',
-          marginRight: cellIdx === cols - 1 ? '0px' : '-1.5px',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* SVG Guides inside cell */}
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          {config.gridType === 'tianzige' && (
-            <>
-              <line x1="0" y1="50" x2="100" y2="50" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-              <line x1="50" y1="0" x2="50" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-            </>
-          )}
-          {config.gridType === 'mige' && (
-            <>
-              <line x1="0" y1="0" x2="100" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-              <line x1="100" y1="0" x2="0" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-              <line x1="0" y1="50" x2="100" y2="50" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-              <line x1="50" y1="0" x2="50" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
-            </>
-          )}
-        </svg>
-
-        {/* Character */}
-        {cell.char && (
-          <span
-            className={`relative z-10 font-bold leading-none ${currentSize.fontSize} ${
-              cell.isPunctuation ? 'text-neutral-600 translate-x-[-15%] translate-y-[-15%]' : 'text-neutral-900'
-            }`}
-            style={{ fontFamily: '"Noto Serif SC", "Noto Sans SC", STKaiti, KaiTi, serif' }}
-          >
-            {cell.char}
-          </span>
-        )}
-      </div>
-    );
-  };
-
   return (
-    <div id="chinese-continuous-sheet" className="w-full flex flex-col items-center">
-      {/* Grid container */}
-      <div className="w-full overflow-x-auto py-2">
-        <div className="inline-flex flex-col space-y-3 min-w-full items-center">
-          {rows.map((row, rIdx) => {
-            return (
-              <div key={`zh-row-${rIdx}`} className="flex flex-col">
-                {/* Upper Pinyin row: each Pinyin cell is placed directly above its corresponding ideogram */}
-                {config.showTranscription && (
-                  <div className="flex flex-row">
-                    {row.map((cell, cIdx) => (
+    <div
+      id="chinese-continuous-sheet"
+      className="w-full flex flex-col"
+      style={{ containerType: 'inline-size' }}
+    >
+      {/* Grid container: 100% fluid, zero horizontal scrolling */}
+      <div className="w-full flex flex-col space-y-2.5 py-1">
+        {rows.map((row, rIdx) => {
+          return (
+            <div key={`zh-row-${rIdx}`} className="w-full flex flex-col">
+              {/* Upper Pinyin row: 1-to-1 matching cell above ideogram */}
+              {config.showTranscription && (
+                <div
+                  className="w-full"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {row.map((cell, cIdx) => (
+                    <div
+                      key={`zh-pinyin-${rIdx}-${cIdx}`}
+                      className="relative flex items-center justify-center select-none overflow-hidden"
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 0.52',
+                        borderTop: `1.5px solid ${colors.border}`,
+                        borderLeft: `1.5px solid ${colors.border}`,
+                        borderRight: cIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
+                        borderBottom: `1px solid ${colors.inner}`,
+                        backgroundColor: colors.fill,
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {/* Sì Xiàn Sān Gé (四线三格) Pinyin notebook guide lines */}
                       <div
-                        key={`zh-pinyin-${rIdx}-${cIdx}`}
-                        className="relative flex items-center justify-center select-none overflow-hidden"
+                        className="absolute inset-x-0 pointer-events-none"
                         style={{
-                          width: `${currentSize.cellSize}px`,
-                          height: `${currentSize.pinyinHeight}px`,
-                          borderTop: `1.5px solid ${colors.border}`,
-                          borderLeft: `1.5px solid ${colors.border}`,
-                          borderRight: cIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
-                          borderBottom: `1px solid ${colors.inner}`,
-                          marginRight: cIdx === cols - 1 ? '0px' : '-1.5px',
-                          backgroundColor: colors.fill,
-                          boxSizing: 'border-box',
+                          top: '33%',
+                          borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
+                        }}
+                      />
+                      <div
+                        className="absolute inset-x-0 pointer-events-none"
+                        style={{
+                          top: '66%',
+                          borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
+                        }}
+                      />
+
+                      {/* Aligned Pinyin syllable */}
+                      {cell.pinyin && (
+                        <span
+                          className="relative z-10 font-bold text-neutral-950 tracking-tight leading-none text-center truncate max-w-full px-0.5"
+                          style={{
+                            fontSize: `clamp(8px, ${2.2 * fontMultiplier}cqi, ${14 * fontMultiplier}px)`,
+                            fontFamily: 'system-ui, -apple-system, sans-serif',
+                          }}
+                        >
+                          {cell.pinyin}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Character grid row */}
+              <div
+                className="w-full"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                }}
+              >
+                {row.map((cell, cIdx) => (
+                  <div
+                    key={`zh-cell-${rIdx}-${cIdx}`}
+                    className="grid-cell relative flex items-center justify-center select-none overflow-hidden"
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      borderLeft: `1.5px solid ${colors.border}`,
+                      borderRight: cIdx === cols - 1 ? `1.5px solid ${colors.border}` : 'none',
+                      borderTop: config.showTranscription ? 'none' : `1.5px solid ${colors.border}`,
+                      borderBottom: `1.5px solid ${colors.border}`,
+                      backgroundColor: '#ffffff',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {/* SVG Guides inside cell */}
+                    <svg
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      {config.gridType === 'tianzige' && (
+                        <>
+                          <line x1="0" y1="50" x2="100" y2="50" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                          <line x1="50" y1="0" x2="50" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                        </>
+                      )}
+                      {config.gridType === 'mige' && (
+                        <>
+                          <line x1="0" y1="0" x2="100" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                          <line x1="100" y1="0" x2="0" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                          <line x1="0" y1="50" x2="100" y2="50" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                          <line x1="50" y1="0" x2="50" y2="100" stroke={colors.inner} strokeWidth="1.2" strokeDasharray="3 3" />
+                        </>
+                      )}
+                    </svg>
+
+                    {/* Character */}
+                    {cell.char && (
+                      <span
+                        className={`relative z-10 font-bold leading-none select-none ${
+                          cell.isPunctuation ? 'text-neutral-700 translate-x-[-15%] translate-y-[-15%]' : 'text-neutral-950'
+                        }`}
+                        style={{
+                          fontSize: `clamp(13px, ${4.8 * fontMultiplier}cqi, ${28 * fontMultiplier}px)`,
+                          fontFamily: '"Noto Serif SC", "Noto Sans SC", STKaiti, KaiTi, serif',
                         }}
                       >
-                        {/* Authentic Sì Xiàn Sān Gé (四线三格) Pinyin notebook guide lines */}
-                        <div
-                          className="absolute inset-x-0 pointer-events-none"
-                          style={{
-                            top: '33%',
-                            borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
-                          }}
-                        />
-                        <div
-                          className="absolute inset-x-0 pointer-events-none"
-                          style={{
-                            top: '66%',
-                            borderBottom: `0.8px dotted ${colors.pinyinGuide}`,
-                          }}
-                        />
-
-                        {/* Perfectly aligned Pinyin syllable */}
-                        {cell.pinyin && (
-                          <span
-                            className="relative z-10 font-medium text-neutral-800 tracking-tight leading-none text-center truncate max-w-full px-0.5"
-                            style={{
-                              fontSize: currentSize.pinyinFontSize,
-                              fontFamily: 'system-ui, -apple-system, sans-serif',
-                            }}
-                          >
-                            {cell.pinyin}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                        {cell.char}
+                      </span>
+                    )}
                   </div>
-                )}
-
-                {/* Character grid row */}
-                <div className="flex flex-row">
-                  {row.map((cell, cIdx) => renderCell(cell, cIdx, rIdx))}
-                </div>
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Translation Section (Clean, unified layout) */}
+      {/* Translation Section */}
       {config.showTranslation && data.translation && (
-        <div className="w-full mt-8 pt-4 border-t-2 border-neutral-200">
+        <div className="w-full mt-6 pt-4 border-t border-neutral-200">
           <div className="flex items-center gap-2 mb-2">
             <span
-              className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white"
+              className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded text-white shadow-2xs"
               style={{ backgroundColor: colors.border }}
             >
               Traduzione del Tema (Italiano)
             </span>
           </div>
-          <div className="bg-neutral-50/80 p-4 rounded-lg border border-neutral-200">
-            <p className="text-sm text-neutral-800 leading-relaxed italic font-serif">
+          <div className="bg-neutral-50/90 p-3.5 sm:p-4 rounded-lg border border-neutral-200">
+            <p className="text-sm sm:text-base text-neutral-800 leading-relaxed italic font-serif">
               {data.translation}
             </p>
           </div>
